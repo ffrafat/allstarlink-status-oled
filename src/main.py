@@ -504,11 +504,26 @@ def draw_normal_screen(screen_name, sys_info, asl_info):
         if screen_name == "default":
             draw_header(draw, sys_info)
             center_text(draw, f"NODE {NODE_NUMBER}", 22, FONT_MED)
-            center_text(draw, "IDLE", 40, FONT_BIG)
             
-            # Pulsing status dot
-            pulse_r = 2 + int((time.time() * 2) % 3)
-            draw.ellipse((WIDTH // 2 - pulse_r, 58 - pulse_r, WIDTH // 2 + pulse_r, 58 + pulse_r), fill="white")
+            # Draw blinking dot + IDLE text side-by-side centered
+            idle_text = "IDLE"
+            bbox = draw.textbbox((0, 0), idle_text, font=FONT_BIG)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+            
+            dot_w = 6
+            gap = 6
+            total_w = dot_w + gap + text_w
+            start_x = (WIDTH - total_w) // 2
+            
+            draw.text((start_x + dot_w + gap, 40), idle_text, fill="white", font=FONT_BIG)
+            
+            # Blinking status dot (twice a second)
+            if int(time.time() * 2) % 2 == 0:
+                cx = start_x + 3
+                cy = 40 + text_h // 2 + 1
+                pulse_r = 3
+                draw.ellipse((cx - pulse_r, cy - pulse_r, cx + pulse_r, cy + pulse_r), fill="white")
             
         elif screen_name == "callsign":
             center_text(draw, CALLSIGN, 18, FONT_HUGE)
