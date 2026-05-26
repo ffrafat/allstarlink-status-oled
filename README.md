@@ -37,17 +37,27 @@ Before installing, ensure that:
 
 ## 🚀 Installation & Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ffrafat/allstarlink-status-oled.git
-   cd allstarlink-status-oled
-   ```
+### Method 1: The Interactive One-Liner (Recommended - No Git/Unzip required)
+Copy and run either of these commands in your terminal to download and execute the interactive setup script directly:
 
-2. **Run the installer:**
-   ```bash
-   chmod +x install.sh
-   ./install.sh
-   ```
+Using **curl**:
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/ffrafat/allstarlink-status-oled/main/install.sh)
+```
+
+Using **wget**:
+```bash
+bash <(wget -qO- https://raw.githubusercontent.com/ffrafat/allstarlink-status-oled/main/install.sh)
+```
+
+### Method 2: Git Clone
+Alternatively, you can clone the repository manually:
+```bash
+git clone https://github.com/ffrafat/allstarlink-status-oled.git
+cd allstarlink-status-oled
+chmod +x install.sh
+sudo ./install.sh
+```
 
 3. **Interactive Configuration Wizard:**
    During installation, the terminal will prompt you to enter the following variables:
