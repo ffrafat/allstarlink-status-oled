@@ -52,21 +52,46 @@ def pad_visible(text, width):
     return text + padding
 
 def make_bar(percentage):
-    filled = int(percentage / 10)
+    try:
+        pct = int(percentage)
+    except:
+        pct = 0
+    filled = int(pct / 10)
     bar = "█" * filled + "░" * (10 - filled)
-    return f"{percentage}% {C_BLUE}[{bar}]{C_RESET}"
+    return f"{pct}% {C_BLUE}[{bar}]{C_RESET}"
 
 def get_stats():
     # Load config and read current statuses
-    config = main.load_config()
+    config = main.CONFIG
     callsign = config.get("callsign", "MYCALL")
     node = config.get("node", "1234")
     
-    asl_ready = main.is_asterisk_ready()
-    
-    rx, tx, remotes = False, False, []
-    if asl_ready:
-        rx, tx, remotes = main.get_node_status()
+    # Check if we have background threads running (e.g. in watch mode)
+    if getattr(main, "state", None) is not None:
+        sys_info = main.state.get_system_stats()
+        asl_info = main.state.get_asl_status()
+        
+        asl_ready = asl_info["asl_ready"]
+        rx = asl_info["rx"]
+        tx = asl_info["tx"]
+        remotes = asl_info["remotes"]
+        
+        temp = sys_info["cpu_temp"]
+        ram = sys_info["ram_usage"]
+        uptime = sys_info["uptime"]
+        wifi = sys_info["wifi_strength"]
+        warp = sys_info["warp_status"]
+    else:
+        # Fallback to synchronous queries for single run CLI calls
+        asl_ready = main.is_asterisk_ready()
+        rx, tx, remotes = False, False, []
+        if asl_ready:
+            rx, tx, remotes = main.get_node_status()
+        temp = main.get_cpu_temp()
+        ram = main.get_ram_usage()
+        uptime = main.get_uptime()
+        wifi = main.get_wifi_strength()
+        warp = main.get_warp_status()
         
     status_text = f"{C_YELLOW}IDLE{C_RESET}"
     if not asl_ready:
@@ -78,27 +103,46 @@ def get_stats():
         status_text = f"{C_GREEN}{C_BOLD}RECEIVING (RX from {active}){C_RESET}"
         
     links_text = ", ".join(remotes) if remotes else "None"
-    
-    temp = main.get_cpu_temp()
-    ram = main.get_ram_usage()
-    uptime = main.get_uptime()
-    wifi = main.get_wifi_strength()
-    warp = main.get_warp_status()
     i2c_addr = config.get("i2c_address", "0x3C")
     resolution = config.get("resolution", "128x64")
     
+    # Unicode Box Border formatting
+    width = 46
+    box_top = f"{C_BLUE}╭" + "─" * (width + 2) + f"╮{C_RESET}"
+    box_middle = f"{C_BLUE}├" + "─" * (width + 2) + f"┤{C_RESET}"
+    box_bottom = f"{C_BLUE}╰" + "─" * (width + 2) + f"╯{C_RESET}"
+    
+    def make_row(label, val, icon=""):
+        icon_prefix = f"{icon} " if icon else ""
+        label_part = f"{icon_prefix}{label}"
+        row_content = f"{C_BOLD}{label_part:<15}{C_RESET}: {val}"
+        v_len = visible_len(row_content)
+        padding = " " * max(0, width - v_len)
+        return f"{C_BLUE}│{C_RESET} {row_content}{padding} {C_BLUE}│{C_RESET}"
+
+    # Center title in header
+    title_text = f"{C_CYAN}{C_BOLD}AllStarLink Status Dashboard{C_RESET}"
+    title_v_len = visible_len(title_text)
+    title_pad = (width - title_v_len) // 2
+    title_content = " " * title_pad + title_text
+    v_len = visible_len(title_content)
+    title_padding = " " * max(0, width - v_len)
+    title_row = f"{C_BLUE}│{C_RESET} {title_content}{title_padding} {C_BLUE}│{C_RESET}"
+    
     info_lines = [
-        f"{C_CYAN}{C_BOLD}AllStarLink Status Dashboard{C_RESET}",
-        f"{C_CYAN}----------------------------{C_RESET}",
-        f"{C_BOLD}Callsign{C_RESET}    : {C_GREEN}{callsign}{C_RESET}",
-        f"{C_BOLD}Node Number{C_RESET} : {C_GREEN}{node}{C_RESET}",
-        f"{C_BOLD}Node Status{C_RESET} : {status_text}",
-        f"{C_BOLD}Active Links{C_RESET}: {C_YELLOW}{links_text}{C_RESET}",
-        f"{C_BOLD}CPU Temp{C_RESET}    : {C_GREEN}{temp}°C{C_RESET}",
-        f"{C_BOLD}RAM Usage{C_RESET}   : {make_bar(ram)}",
-        f"{C_BOLD}WiFi Signal{C_RESET} : {make_bar(wifi)}",
-        f"{C_BOLD}System Uptime{C_RESET}: {C_GREEN}{uptime}{C_RESET}",
-        f"{C_BOLD}OLED Setup{C_RESET}   : {C_GREEN}{resolution}{C_RESET} (I2C: {i2c_addr}), Mode: {C_GREEN}{warp}{C_RESET}"
+        box_top,
+        title_row,
+        box_middle,
+        make_row("Callsign", f"{C_GREEN}{callsign}{C_RESET}", "📡"),
+        make_row("Node Number", f"{C_GREEN}{node}{C_RESET}", "🔢"),
+        make_row("Node Status", status_text, "🚦"),
+        make_row("Active Links", f"{C_YELLOW}{links_text}{C_RESET}", "🔗"),
+        make_row("CPU Temp", f"{C_GREEN}{temp}°C{C_RESET}", "🌡️"),
+        make_row("RAM Usage", make_bar(ram), "⚙️"),
+        make_row("WiFi Signal", make_bar(wifi), "📶"),
+        make_row("Uptime", f"{C_GREEN}{uptime}{C_RESET}", "⏰"),
+        make_row("OLED Setup", f"{C_GREEN}{resolution}{C_RESET} ({i2c_addr}) | Mode: {C_GREEN}{warp}{C_RESET}", "🖥️"),
+        box_bottom
     ]
     return info_lines
 
@@ -119,6 +163,9 @@ def main_cli():
     args = parser.parse_args()
     
     if args.watch:
+        # Initialize background state threads to keep updates latency-free
+        if hasattr(main, "init_state"):
+            main.init_state()
         try:
             while True:
                 # Clear terminal screen using ANSI code
