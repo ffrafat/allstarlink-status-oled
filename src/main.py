@@ -21,7 +21,7 @@ CONFIG_FILE = "/opt/allstarlink-status-oled/config.json"
 IDLE_REFRESH = 0.35
 ACTIVE_REFRESH = 0.06
 
-SCREEN_ROTATE_INTERVAL = 3
+SCREEN_ROTATE_INTERVAL = 5
 
 def load_config():
     defaults = {
@@ -318,10 +318,6 @@ def draw_wifi(draw, strength):
             )
 
 def draw_header(draw, sys_info):
-    draw.rectangle(
-        (0, 0, WIDTH - 1, 15),
-        outline="white"
-    )
     warp = sys_info["warp_status"]
     wifi = sys_info["wifi_strength"]
     wifi_text = f"{wifi}%"
@@ -505,9 +501,8 @@ def draw_normal_screen(screen_name, sys_info, asl_info):
             center_text(draw, f"UP: {uptime}", 16, FONT_SMALL)
     else:
         # HEIGHT == 64 Layouts
-        draw_header(draw, sys_info)
-        
         if screen_name == "default":
+            draw_header(draw, sys_info)
             center_text(draw, f"NODE {NODE_NUMBER}", 22, FONT_MED)
             center_text(draw, "IDLE", 40, FONT_BIG)
             
@@ -519,31 +514,31 @@ def draw_normal_screen(screen_name, sys_info, asl_info):
             center_text(draw, CALLSIGN, 18, FONT_HUGE)
             
         elif screen_name == "connected":
-            center_text(draw, "CONNECTED TO", 20, FONT_SMALL)
-            center_text(draw, get_link_line(remotes), 34, FONT_MED)
+            center_text(draw, "CONNECTED TO", 16, FONT_SMALL)
+            center_text(draw, get_link_line(remotes), 32, FONT_MED)
             
             # Simple link visual element
-            draw.ellipse((10, 52, 14, 56), outline="white")
-            draw.line((14, 54, WIDTH - 14, 54), fill="white")
-            draw.ellipse((WIDTH - 14, 52, WIDTH - 10, 56), outline="white")
+            draw.ellipse((10, 50, 14, 54), outline="white")
+            draw.line((14, 52, WIDTH - 14, 52), fill="white")
+            draw.ellipse((WIDTH - 14, 50, WIDTH - 10, 54), outline="white")
             
         elif screen_name == "system":
             # Temp Row
-            draw_thermometer_icon(draw, 12, 21)
-            draw.text((24, 20), f"TEMP: {temp}°C", fill="white", font=FONT_SMALL)
+            draw_thermometer_icon(draw, 12, 13)
+            draw.text((24, 12), f"TEMP: {temp}°C", fill="white", font=FONT_SMALL)
             
             # RAM Row
-            draw_ram_icon(draw, 12, 35)
+            draw_ram_icon(draw, 12, 29)
             # RAM Bar (width 50px)
-            draw.rectangle((24, 36, 74, 42), outline="white")
+            draw.rectangle((24, 30, 74, 36), outline="white")
             bar_w = int(50 * (ram / 100.0))
             if bar_w > 0:
-                draw.rectangle((26, 38, 26 + bar_w - 4 if bar_w > 4 else 26, 40), fill="white")
-            draw.text((79, 34), f"{ram}%", fill="white", font=FONT_SMALL)
+                draw.rectangle((26, 32, 26 + bar_w - 4 if bar_w > 4 else 26, 34), fill="white")
+            draw.text((79, 28), f"{ram}%", fill="white", font=FONT_SMALL)
             
             # Uptime Row
-            draw_clock_icon(draw, 12, 49)
-            draw.text((24, 48), f"UPTIME: {uptime}", fill="white", font=FONT_SMALL)
+            draw_clock_icon(draw, 12, 45)
+            draw.text((24, 44), f"UPTIME: {uptime}", fill="white", font=FONT_SMALL)
             
     return img
 
@@ -564,11 +559,6 @@ def main(device):
     current_screen_idx = 0
     last_screen_change = time.time()
     tick = 0
-    
-    last_static_img = None
-    transition_progress = 1.0
-    transition_start_time = 0
-    transition_duration = 0.5  # half second sliding animation
     
     # 20 FPS rendering loop
     FRAME_TIME = 0.05
@@ -602,33 +592,14 @@ def main(device):
             time.sleep(sleep_time)
             continue
             
-        # Screen transitions
+        # Screen transitions (Instant switching)
         now = time.time()
         if now - last_screen_change > SCREEN_ROTATE_INTERVAL:
-            last_static_img = draw_normal_screen(screens[current_screen_idx], sys_info, asl_info)
             current_screen_idx = (current_screen_idx + 1) % len(screens)
             last_screen_change = now
-            transition_progress = 0.0
-            transition_start_time = now
             
-        if transition_progress < 1.0:
-            elapsed_transition = now - transition_start_time
-            transition_progress = min(1.0, elapsed_transition / transition_duration)
-            
-            # Calculate pixel offset (sliding from right to left)
-            offset = int(WIDTH * transition_progress)
-            img_next = draw_normal_screen(screens[current_screen_idx], sys_info, asl_info)
-            
-            combined = Image.new("1", (WIDTH * 2, HEIGHT))
-            if last_static_img:
-                combined.paste(last_static_img, (0, 0))
-            combined.paste(img_next, (WIDTH, 0))
-            
-            cropped = combined.crop((offset, 0, offset + WIDTH, HEIGHT))
-            device.display(cropped)
-        else:
-            img = draw_normal_screen(screens[current_screen_idx], sys_info, asl_info)
-            device.display(img)
+        img = draw_normal_screen(screens[current_screen_idx], sys_info, asl_info)
+        device.display(img)
             
         tick += 1
         
