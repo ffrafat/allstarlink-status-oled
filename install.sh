@@ -2,15 +2,25 @@
 
 set -e
 
-echo "Installing Allstarlink Status OLED..."
+echo "Installing AllStarLink Status OLED..."
 
 # Stop known conflicting service
 if systemctl list-unit-files | grep -q digi-gate.service; then
-
     echo "Disabling digi-gate.service..."
-
     sudo systemctl stop digi-gate.service || true
     sudo systemctl disable digi-gate.service || true
+fi
+
+# Install dependencies
+echo "Installing system dependencies (this may take a minute)..."
+sudo apt-get update
+sudo apt-get install -y python3-pip python3-pil python3-dev build-essential libjpeg-dev zlib1g-dev libfreetype6-dev liblcms2-dev libopenjp2-7 libtiff6 git
+
+echo "Installing Python library dependencies..."
+# Install luma.oled system-wide. Uses --break-system-packages for Debian Bookworm (PEP 668), 
+# with a fallback to standard pip install for older OS versions.
+if ! sudo pip3 install luma.oled --break-system-packages 2>/dev/null; then
+    sudo pip3 install luma.oled || true
 fi
 
 # Create install directory
