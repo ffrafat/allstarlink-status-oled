@@ -4,6 +4,22 @@ A Python application and system daemon to display the real-time status of your A
 
 ---
 
+## ⚡ Quick Install
+
+To download and start the installation immediately on your node, copy and run one of the following commands in your terminal:
+
+**Using curl:**
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/ffrafat/allstarlink-status-oled/main/install.sh)
+```
+
+**Using wget:**
+```bash
+bash <(wget -qO- https://raw.githubusercontent.com/ffrafat/allstarlink-status-oled/main/install.sh)
+```
+
+---
+
 ## 👤 Credits & Inspiration
 
 * **Developer:** Faisal Faruque Rafat (S21NET)
